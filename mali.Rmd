@@ -1,0 +1,295 @@
+---
+title: "Mali Project"
+author: "David Bick"
+date: "7/11/2018"
+output: pdf_document
+---
+
+## Changes ##
+
+* Removed all entries with undocumented species or month - this happened to remove all observations from April
+* From this, the sex breakdown by altitude changed, with males being more common at higher altitude
+* Added movement of perexiguus and anopheles by months andthroughout the years
+* Easier to see that Culex mali sp. 1 proportion increases as altitude increases
+
+```{r echo=F, warning=F}
+suppressMessages(library(ggthemes))
+suppressMessages(library(tidyverse))
+suppressMessages(library(ggplot2))
+suppressMessages(library(dplyr))
+suppressMessages(library(knitr))
+suppressMessages(library(kableExtra))
+suppressMessages(library(ggpubr))
+mali.df = read.csv("mali.csv", stringsAsFactors = FALSE)
+mali.df$altitude = mali.df$Collection.Notes %>% substr(., nchar(.)-3, nchar(.)-1) %>% trimws() %>% as.numeric()
+get.month = function(x) {
+  if (x == "") return ("Unlabeled")
+  return(strsplit(x, "-") %>% "[["(., 1) %>% "[["(., 2))
+}
+get.year = function(x) {
+  if (x == "") return ("Unlabeled")
+  return(strsplit(x, "-") %>% "[["(., 1) %>% "[["(., 3))
+}
+mali.df$year = lapply(mali.df$Collection.Date, get.year) %>% unlist()
+mali.df$month = lapply(mali.df$Collection.Date, get.month) %>% unlist()
+mali.df$Species[mali.df$Species == ""] = "Unlabeled"
+mali.df = mali.df[mali.df$Species != "Unlabeled",]
+mali.df = mali.df[mali.df$month != "Unlabeled",]
+mali.df$posix.date = mali.df$Collection.Date %>% strptime(., format="%d-%b-%y") %>% as.POSIXct()
+mali.df$year.month = mali.df$posix.date %>% format(., format="%y-%m")
+
+```
+
+
+
+## Perexiguus Over The Year##  
+```{r echo=F, warning=F}
+months = c("May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+perexiguus = mali.df %>% filter(Species == "Culex perexiguus")
+one = perexiguus %>% 
+  group_by(month) %>%
+  count()
+one$month = factor(one$month, levels=months)
+one = one[c(5,4,3,1,8,7,6,2),]
+one$Percent = ((one$n / sum(one$n))*100) %>% round(., 2)
+labels = paste(one$Percent, "%", sep="")
+
+ggplot(one, aes(x=month, y=n)) + geom_bar(stat="identity") + 
+  labs(y="# of mosquitos", x="Month", title="Number of Culex Perexiguus By Month") + 
+  theme(plot.title = element_text(hjust=0.5)) + 
+  geom_text(aes(label=labels), vjust=-0.4)
+
+two = perexiguus[-(c(1, 2, 3)),]  %>%
+  group_by(year.month) %>%
+  count()
+
+years = c("13", "14", "15")
+months = c("01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12")
+year.months = c()
+for (year in years) {
+  for (month in months) {
+    new = paste(year, month, sep="-")
+    year.months=c(year.months, new)
+  }
+}
+
+two = two[-c(1,2),]
+full = data.frame(year.month=year.months, n=vector(length=length(year.months), mode="numeric"), stringsAsFactors = FALSE)
+
+for (year.month in two$year.month) {
+  full[full$year.month == year.month,]$n = two[two$year.month == year.month,]$n
+}
+
+ggplot(full, aes(x=year.month, y=n)) + geom_bar(stat="identity") + 
+  theme(axis.text.x = element_text(size=7, angle=90), plot.title = element_text(hjust=0.5)) + 
+  labs(x="Date: YY-MM ", y="# of mosquitos", title="Perexiguus by Month 2013-2015")
+```
+
+## Anopheles Over The Year##  
+```{r echo=F}
+months = c("May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+anopheles = mali.df %>% filter(Genus == "Anopheles")
+one = anopheles %>% 
+  group_by(month) %>%
+  count()
+one$month = factor(one$month, levels=months)
+one = one[c(5,4,3,1,8,7,6,2),]
+one$Percent = ((one$n / sum(one$n))*100) %>% round(., 2)
+labels = paste(one$Percent, "%", sep="")
+
+ggplot(one, aes(x=month, y=n)) + geom_bar(stat="identity") + 
+  labs(y="# of mosquitos", x="Month", title="Number of Anopheles By Month") + 
+  theme(plot.title = element_text(hjust=0.5)) + 
+  geom_text(aes(label=labels), vjust=-0.4)
+
+two = anopheles[-(c(1, 2, 3)),]  %>%
+  group_by(year.month) %>%
+  count()
+
+years = c("13", "14", "15")
+months = c("01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12")
+year.months = c()
+for (year in years) {
+  for (month in months) {
+    new = paste(year, month, sep="-")
+    year.months=c(year.months, new)
+  }
+}
+
+two = two[-c(1,2),]
+full = data.frame(year.month=year.months, n=vector(length=length(year.months), mode="numeric"), stringsAsFactors = FALSE)
+
+for (year.month in two$year.month) {
+  full[full$year.month == year.month,]$n = two[two$year.month == year.month,]$n
+}
+
+ggplot(full, aes(x=year.month, y=n)) + geom_bar(stat="identity") + 
+  theme(axis.text.x = element_text(size=7, angle=90), plot.title = element_text(hjust=0.5)) + 
+  labs(x="Date: YY-MM ", y="# of mosquitos", title="Anopheles by Month 2013-2015")
+```
+
+##Counts of Mosquitos at Each Altitude##
+```{r echo=F, warning=F}
+alt.counts = mali.df %>%
+  group_by(altitude) %>% 
+  summarize(Count=n()) %>%
+  arrange(desc(altitude))
+alt.counts = alt.counts[!is.na(alt.counts$altitude),]
+alt.counts %>% kable() %>% kable_styling(bootstrap_options = c("condensed"))
+```
+
+##Overall Species Breakdown Top 10 Most Common ##
+```{r echo=F}
+overall.species.breakdown = mali.df %>% 
+  group_by(Species) %>%
+  summarize(Count=n()) %>%
+  arrange(desc(Count))
+overall.species.breakdown$Percent = ((overall.species.breakdown$Count / sum(overall.species.breakdown$Count)) * 100) %>% round(., 2)
+head(overall.species.breakdown, 10) %>% kable() %>% kable_styling()
+ 
+```
+
+##Anopheles by Altitude##
+```{r echo=F}
+
+anoph.df = mali.df %>% filter(Genus == "Anopheles")
+anoph = anoph.df %>%
+  group_by(altitude) %>%
+  summarize(Count=n()) %>%
+  arrange(desc(altitude))
+anoph$Genus = "Anopheles"
+anoph$Percent = ((anoph$Count / sum(anoph$Count)) * 100) %>% round(., 2)
+anoph = anoph[!is.na(anoph$altitude),]
+anoph = anoph[,c(3, 1, 2, 4)]
+#anoph %>% kable() %>% kable_styling()
+
+labels = paste(anoph$Percent, "%", sep="")
+ggplot(anoph, aes(x=reorder(altitude, altitude), y=Count)) + 
+  geom_bar(stat="identity") + labs(x="Altitude") + ggtitle("Percent of Total Anopheles at Each Altitude") + 
+  theme(plot.title = element_text(hjust=0.5)) + geom_text(aes(label=labels), vjust=-0.4, color="black")
+
+```
+
+
+##Sex of Mosquito Over Altitude##
+```{r echo=F}
+
+library(ggpubr)
+full.values = mali.df[mali.df$Sex != "",]
+full.values = mali.df[!is.na(mali.df$altitude),]
+full.values.f = full.values %>% filter(Sex == "F")
+full.values.m = full.values %>% filter(Sex == "M")
+
+one = ggplot(full.values.f, aes(reorder(altitude, altitude))) + 
+  geom_bar() + ggtitle("Female") + theme(plot.title=element_text(hjust=0.5)) + 
+  labs(x="Altitude")
+
+two = ggplot(full.values.m, aes(reorder(altitude, altitude))) + 
+  geom_bar() + ggtitle("Male") + theme(plot.title=element_text(hjust=0.5)) + 
+  labs(x="Altitude")
+
+ggarrange(one, two)
+
+
+```
+
+##Altitudinal Species Breakdown with 100 meter Aggregations##  
+```{r echo=F}
+
+species.breakdown.alt.group.100 = function(alt, viz) {
+  df = mali.df %>% filter(alt.group.100 == alt)
+  table = df %>% group_by(Species) %>% summarize(Count=n()) %>% arrange(desc(Count))
+  table$Altitude.Range = alt
+  table = table[,c(3, 1, 2)]
+  table$Percent = ((table$Count / sum(table$Count)) * 100) %>% round(., 2)
+  small.table = table[table$Percent >= 3,]
+  labels = paste(small.table$Percent, "%", sep="")
+  plot = ggplot(small.table, aes(x=reorder(Species, Count), y=Count)) + geom_bar(stat="identity") + theme_tufte()
+  plot = plot + geom_text(aes(label=labels), hjust=1.1, color="white", size=2.4)
+  plot = plot + theme(plot.title = element_text(hjust=0.5), 
+                      axis.text.y = element_text(size=9)) + coord_flip() + 
+    ggtitle(paste("Altitude Range", alt)) + labs(x="Species")
+  if (viz) print(plot)
+  return(list(plot=plot,
+              table=table))
+}
+
+mali.df$alt.group.100 = cut(mali.df$altitude, breaks=c(0, 100, 200, 300))
+alt.groups = mali.df$alt.group.100 %>% unique %>% sort()
+species.breakdowns.alt.groups.100 = lapply(alt.groups, function(alt) species.breakdown.alt.group.100(alt, T))
+#plots = (lapply(species.breakdowns.alt.groups.100, function(x) "[["(x, 1)))
+#figure = ggarrange(plots[[1]], plots[[2]], plots[[3]])
+#figure
+
+```
+
+##Altitudinal Species Breakdown with 50 meter Aggregations##  
+
+250-300 range differs most from the rest, with culex mali sp.1 replacing culex perexiguus at the top  
+An. pharoensis found in relatively high quantity only at the top altitude range  
+```{r echo=F}
+
+par(mfrow=c(2,3))
+species.breakdown.alt.group.50 = function(alt, viz) {
+  df = mali.df %>% filter(alt.group.50 == alt)
+  table = df %>% group_by(Species) %>% summarize(Count=n()) %>% arrange(desc(Count))
+  table$Altitude.Range = alt
+  table = table[,c(3, 1, 2)]
+  table$Percent = ((table$Count / sum(table$Count)) * 100) %>% round(., 2)
+  small.table = table[table$Percent >= 3,]
+  labels = paste(small.table$Percent, "%", sep="")
+  plot = ggplot(small.table, aes(x=reorder(Species, Count), y=Count)) + geom_bar(stat="identity") + theme_tufte()
+  plot = plot + geom_text(aes(label=labels), hjust=1.1, color="white", size=3)
+  plot = plot + theme(plot.title = element_text(hjust=0.5), 
+                      axis.text.y = element_text(size=9)) + coord_flip() + 
+    ggtitle(paste("Altitude Range", alt)) + labs(x="Species")
+  if (viz) print(plot)
+  return(list(plot=plot,
+              table=table))
+}
+
+
+mali.df$alt.group.50 = cut(mali.df$altitude, breaks=c(0, 100, 150, 200, 250, 300))
+alt.groups = mali.df$alt.group.50 %>% unique %>% sort()
+species.breakdowns.alt.groups.50 = lapply(alt.groups, function(alt) species.breakdown.alt.group.50(alt, T))
+plots.1 = (lapply(species.breakdowns.alt.groups.50, function(x) "[["(x, 1)))
+
+
+```
+
+##Species Breakdown by Month ## 
+
+  *Culex perexiguus becomes the most common species in May and keeps the top spot until November  
+  *November is the first month where anopheles are the most common   
+```{r echo=F}
+
+months = c("Mar", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+species.breakdown.month = function(mon, viz) {
+  df = mali.df %>% filter(month == mon)
+  table = df %>% group_by(Species) %>% summarize(Count=n()) %>% arrange(desc(Count))
+  table$month = mon
+  table = table[,c(3, 1, 2)]
+  table$Percent = ((table$Count / sum(table$Count)) * 100) %>% round(., 2)
+  small.table = table[table$Percent >= 3,]
+  labels = paste(small.table$Percent, "%", sep="")
+  plot = ggplot(small.table, aes(x=reorder(Species, Count), y=Count)) + geom_bar(stat="identity") + theme_tufte()
+  plot = plot + geom_text(aes(label=labels), hjust=1.1, color="white", size=3)
+  plot = plot + theme(plot.title = element_text(hjust=0.5), 
+                      axis.text.y = element_text(size=9)) + coord_flip() + 
+    ggtitle(paste("Month:", toupper(mon))) + labs(x="Species")
+  if (viz) print(plot)
+  return(list(plot=plot,
+              table=table))
+}
+
+month.breakdowns = lapply(months, function(mon) species.breakdown.month(mon, T))
+
+
+
+```
+
+
+
