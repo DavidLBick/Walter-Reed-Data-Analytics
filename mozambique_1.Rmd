@@ -1,0 +1,586 @@
+---
+title: "Mozambique"
+author: "David Bick"
+date: "7/6/2018"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+
+```{r message=FALSE, warning=F, error=F, echo=F}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(knitr)
+library(kableExtra)
+setwd("/Users/davidbick/Desktop/WRBU/mozambique_project")
+moz = read.csv("mozambique.csv", header=T)
+```
+
+```{r echo=F}
+colnames(moz)[which(names(moz) == "DATA")] <- "DATE"
+colnames(moz)[which(names(moz) == "IDENT..MORFOLOGICA")] <- "IDENT.MORFOLOGICA"
+colnames(moz)[which(names(moz) == "Gambiae...coluzzii.Hha.I")] <- "Gambiae.coluzzii.Hha.I"
+colnames(moz)[which(names(moz) == "Sample.ID..")] <- "Sample.ID"
+colnames(moz)[which(names(moz) == "TUBO.N." )] <- "TUBO.N" 
+colnames(moz)[which(names(moz) == "ID.match.to.group." )] <- "ID.match.to.group" 
+moz$MES.COLHEITA[moz$MES.COLHEITA == "Abril"] = "April"
+moz$MES.COLHEITA[moz$MES.COLHEITA == "Maio"] = "May"
+moz$MES.COLHEITA[moz$MES.COLHEITA == "Marco"] = "March"
+moz$MES.COLHEITA[moz$MES.COLHEITA == "Junho"] = "June"
+moz$MES.COLHEITA[moz$MES.COLHEITA == "junho"] = "June"
+moz$MES.COLHEITA[moz$MES.COLHEITA == "MarÃ§o"] = "March"
+moz$MES.COLHEITA[moz$MES.COLHEITA == "MarÌ¤o"] = "March"
+moz$MES.COLHEITA[moz$MES.COLHEITA == "Marï¿½_o"] = "March"
+moz[,39:137] = NULL
+moz = data.frame(lapply(moz, as.character), stringsAsFactors=FALSE)
+rm.anopheles = function(x) {
+  x = gsub("Anopheles ", "", x)
+  x = gsub("An. ", "", x)
+}
+moz$FINAL.ID = rm.anopheles(moz$FINAL.ID)
+moz$IDENT.MORFOLOGICA = rm.anopheles(moz$IDENT.MORFOLOGICA)
+moz$VILA.BAIRRO[moz$VILA.BAIRRO == "Josina Machel"] = "Josinha Machel"
+moz$VILA.BAIRRO[moz$VILA.BAIRRO == "A luta Continua"] = "A Luta Continua"
+moz$VILA.BAIRRO[moz$VILA.BAIRRO == "A luta continua"] = "A Luta Continua"
+moz$VILA.BAIRRO[moz$VILA.BAIRRO == "Lua lua sede"] = "Lualua Sede"
+moz$VILA.BAIRRO[moz$VILA.BAIRRO == "Lua Lua sede"] = "Lualua Sede"
+moz$VILA.BAIRRO[moz$VILA.BAIRRO == "zona Verde"] = "Zona Verde"
+
+
+get.pos.pos = function(df) {
+  falc.pos = df %>% filter(PFalc.PCR == "POS")
+  viv.pos = df %>% filter(PViv.PCR == "POS")
+  falc.pos.pos = falc.pos %>% filter(PFalc.Sequence == "POS")
+  viv.pos.pos = viv.pos %>% filter(PViv.Sequence == "POS")
+  if (nrow(falc.pos)) 
+  falc.rate = nrow(falc.pos.pos) / nrow(falc.pos)
+  viv.rate = nrow(viv.pos.pos) / nrow(viv.pos)
+  
+  return(list(falc.pos.pos.rate=falc.rate,
+         viv.pos.pos.rate=viv.rate,
+         falc.pos.pos.count=nrow(falc.pos.pos),
+         viv.pos.pos.count=nrow(viv.pos.pos),
+         falc.pos.count=nrow(falc.pos),
+         viv.pos.count=nrow(viv.pos)))
+}
+
+
+```
+
+#New Results#
+* The POS-POS rate at Eduardo Mondlane Locality was much better than the rest of the population (more than 80% of all POS-POS for falciparum in funestus were from this locality), so if they can figure out what they did at Eduardo Mondlane they could potentially make the current PCR for Falciparum viable (as it had 97% success rate). The success rate for Positive predictions for Vivax was 20%, which is an improvement from 6% in the overall population, but likely still not viable. 
+* There were two methods of collection: Light trap, and larvae collection. The larvae collection had 0% accuracy when predicting positive for either Falciparum or Vivax, and all of the correct predictions were with those captured by light trap. 
+
+
+##Identifying Counts of Each Species (DNA ID and Morphological ID)##
+```{r echo=F}
+ggplot(moz, aes(FINAL.ID)) + 
+  geom_bar() + 
+  theme(axis.text.x = element_text(size=8, angle=90), plot.title = element_text(hjust=0.5)) + 
+  coord_flip() + ggtitle("Species Breakdown by DNA") + labs(x="DNA ID", y="# of mosquitos")
+
+ggplot(moz, aes(IDENT.MORFOLOGICA)) + 
+  geom_bar() + 
+  theme(axis.text.x = element_text(size=8, angle=90), plot.title = element_text(hjust=0.5)) + 
+  coord_flip() + ggtitle("Species Breakdown by Morphological ID") + labs(x="Morphological ID", y="# of mosquitos")
+
+one = moz %>%
+  dplyr::group_by(FINAL.ID) %>%
+  dplyr::summarize(count=n()) %>%
+  arrange(desc(count))
+colnames(one) = c("DNA ID", "Count")
+one$percent = (one$Count/ sum(one$Count)) %>% round(., digit=4)
+kable(one) %>% kable_styling(bootstrap_options=c("condensed","striped"))
+
+two = moz %>%
+  dplyr::group_by(IDENT.MORFOLOGICA) %>%
+  dplyr::summarize(count=n()) %>%
+  arrange(desc(count))
+colnames(two) = c("Morphological ID", "Count")
+two$percent = (two$Count / sum(two$Count)) %>% round(., digits=4)
+two %>% kable() %>% kable_styling(bootstrap_options=c("condensed","striped"))
+
+```
+
+
+##How Well Did the ID Match to Group##
+```{r echo=F}
+moz$ID.match.to.group[moz$ID.match.to.group == ""] = "Blank or x"
+moz$ID.match.to.group[moz$ID.match.to.group == "x"] = "Blank or x"
+vec = moz %>% 
+  group_by(ID.match.to.group) %>%
+  dplyr::summarize(count=n()) %>%
+  arrange(desc(count))
+vec$percent = (vec$count / sum(vec$count)) %>% round(., 4)
+colnames(vec) = c("ID Match?", "count", "percentage")
+vec %>% kable() %>% kable_styling(bootstrap_options=c("condensed","striped"))
+
+```
+
+
+##For Top 3 Most Common Morphological ID, What Was the DNA ID?##
+
+Order of common morph. ID:  
+    1. funestus s.l.  
+    2. gambiae s.l.  
+    3. coustani  
+```{r echo=F}
+
+# funestus s.l.
+
+one = moz %>%
+  filter(IDENT.MORFOLOGICA == "funestus s.l.") %>%
+  group_by(FINAL.ID) %>%
+  dplyr::summarize(count=n()) %>%
+  arrange(desc(count))
+one$percent = (one$count / sum(one$count)) %>% round(., digits=4)
+one$Morphological.ID = "funestus s.l."
+one = one[,c("Morphological.ID", "FINAL.ID", "count", "percent")]
+colnames(one) = c("Morphological ID", "DNA ID", "Count", "Percent")
+one %>% kable() %>% kable_styling(bootstrap_options=c("condensed","striped"))
+
+# gambiae s.l.
+two = moz %>%
+  filter(IDENT.MORFOLOGICA == "gambiae s.l.") %>%
+  group_by(FINAL.ID) %>%
+  dplyr::summarize(count=n()) %>%
+  arrange(desc(count))
+two$percent = (two$count / sum(two$count)) %>% round(., digits=4)
+two$Morphological.ID = "gambiae s.l."
+two = two[,c("Morphological.ID", "FINAL.ID", "count", "percent")]
+colnames(two) = c("Morphological ID", "DNA ID", "Count", "Percent")
+two %>% kable() %>% kable_styling(bootstrap_options=c("condensed","striped"))
+
+# coustani
+three = moz %>%
+  filter(IDENT.MORFOLOGICA == "coustani") %>%
+  group_by(FINAL.ID) %>%
+  dplyr::summarize(count=n() )%>%
+  arrange(desc(count))
+three$percent = (three$count / sum(three$count)) %>% round(., digits=4)
+three$Morphological.ID = "coustani"
+three = three[,c("Morphological.ID", "FINAL.ID", "count", "percent")]
+colnames(three) = c("Morphological ID", "DNA ID", "Count", "Percent")
+three %>% kable() %>% kable_styling(bootstrap_options=c("condensed","striped"))
+
+```
+
+
+##For Most Common DNA ID, What Was the Morphological ID?##
+
+Order of common DNA ID:  
+1. funestus s.s.  
+2. arabiensis  
+3. rivulorum  
+4. gambiae s.s.  
+  
+* Arabiensis and rivulorum had no correct morphological IDs: they were put into funestus and gambiae
+* Funestus s.s. and gambiae s.s. had 95%+ accuracy in morphological ID as funestus s.l. and gambiae s.l., respectively
+```{r echo=F}
+
+# funestus s.s.
+one = moz %>%
+  filter(FINAL.ID == "funestus s.s.") %>%
+  group_by(IDENT.MORFOLOGICA) %>%
+  dplyr::summarize(count=n()) %>%
+  arrange(desc(count))
+one$percent = (one$count / sum(one$count)) %>% round(., digits=4)
+one$DNA.ID = "funestus s.s."
+one = one[,c("DNA.ID", "IDENT.MORFOLOGICA", "count", "percent")]
+colnames(one) = c("DNA ID", "Morphological ID", "Count", "Percent")
+one %>% kable() %>% kable_styling(bootstrap_options=c("condensed","striped"))
+
+# arabiensis
+two = moz %>%
+  filter(FINAL.ID == "arabiensis") %>%
+  group_by(IDENT.MORFOLOGICA) %>%
+  dplyr::summarize(count=n()) %>%
+  arrange(desc(count))
+two$percent = (two$count / sum(two$count)) %>% round(., digits=4)
+two$DNA.ID = "arabiensis"
+two = two[,c("DNA.ID", "IDENT.MORFOLOGICA", "count", "percent")]
+colnames(two) = c("DNA ID", "Morphological ID", "Count", "Percent")
+two %>% kable() %>% kable_styling(bootstrap_options=c("condensed","striped"))
+
+# rivulorum
+three = moz %>%
+  filter(FINAL.ID == "rivulorum") %>%
+  group_by(IDENT.MORFOLOGICA) %>%
+  dplyr::summarize(count=n() )%>%
+  arrange(desc(count))
+three$percent = (three$count / sum(three$count)) %>% round(., digits=4)
+three$DNA.ID = "rivulorum"
+three = three[,c("DNA.ID", "IDENT.MORFOLOGICA", "count", "percent")]
+colnames(three) = c("DNA ID", "Morphological ID", "Count", "Percent")
+three %>% kable() %>% kable_styling(bootstrap_options=c("condensed","striped"))
+
+# gambiae s.s.
+four = moz %>%
+  filter(FINAL.ID == "gambiae s.s.") %>%
+  group_by(IDENT.MORFOLOGICA) %>%
+  dplyr::summarize(count=n() )%>%
+  arrange(desc(count))
+four$percent = (four$count / sum(four$count)) %>% round(., digits=4)
+four$DNA.ID = "gambiae s.s."
+four = four[,c("DNA.ID", "IDENT.MORFOLOGICA", "count", "percent")]
+colnames(four) = c("DNA ID", "Morphological ID", "Count", "Percent")
+four %>% kable() %>% kable_styling(bootstrap_options = c("condensed", "striped"))
+
+
+```
+
+
+##PCR v Sequence##
+
+  If the falciparum PCR showed negative, it was 100% right - but if it showed positive it was only 20% correct. 
+  
+  The PCR for vivax also had 100% success when declaring negative, but when declaring positive it was correct only 5% of the time.
+```{r echo=F}
+
+one = moz %>% 
+  filter(PFalc.PCR == "POS") %>%
+  group_by(PFalc.Sequence) %>%
+  dplyr::summarize(count=n())
+one$percent = one$count / sum(one$count)
+one$PCR = "POS"
+one = one[,c("PCR", "PFalc.Sequence", "count", "percent")]
+colnames(one) = c("Falc PCR", "Falc Sequence", "Count", "Percent")
+one %>% kable() %>% kable_styling(bootstrap_options=c("condensed","striped"))
+
+two = moz %>%
+  filter(PFalc.PCR == "negative") %>%
+  group_by(PFalc.Sequence) %>%
+  dplyr::summarize(count=n())
+two$percent = two$count / sum(two$count)
+two$PCR = "Negative"
+two = two[,c("PCR", "PFalc.Sequence", "count", "percent")]
+colnames(two) = c("Falc PCR", "Falc Sequence", "Count", "Percent")
+two %>% kable() %>% kable_styling(bootstrap_options=c("condensed","striped"))
+
+one = moz %>% 
+  filter(PViv.PCR == "POS") %>%
+  group_by(PViv.Sequence) %>%
+  dplyr::summarize(count=n())
+one$percent = one$count / sum(one$count)
+one$PCR = "POS"
+one = one[,c("PCR", "PViv.Sequence", "count", "percent")]
+colnames(one) = c("Viv PCR", "Viv Sequence", "Count", "Percent")
+one %>% kable() %>% kable_styling(bootstrap_options=c("condensed","striped"))
+
+one = moz %>% 
+  filter(PViv.PCR == "negative") %>%
+  group_by(PViv.Sequence) %>%
+  dplyr::summarize(count=n())
+one$percent = one$count / sum(one$count)
+one$PCR = "Negative"
+one = one[,c("PCR", "PViv.Sequence", "count", "percent")]
+colnames(one) = c("Viv PCR", "Viv Sequence", "Count", "Percent")
+one %>% kable() %>% kable_styling(bootstrap_options=c("condensed","striped"))
+```
+
+
+##Falciparum: which species did the PCR perform best/worst on?##
+
+  First table: POS-POS  
+  Second table: POS-negative  
+
+  Nearly all POS-POS were on funestus s.s. but the vast majority of the POS-negative were also funestus s.s.
+```{r echo=F}
+
+moz %>%
+  filter(PFalc.PCR == "POS" & PFalc.Sequence == "POS") %>%
+  group_by(FINAL.ID) %>%
+  summarize(count=n()) %>% 
+  kable() %>% 
+  kable_styling(bootstrap_options=c("condensed","striped"))
+
+moz %>%
+  filter(PFalc.PCR == "POS" & PFalc.Sequence == "negative") %>%
+  group_by(FINAL.ID) %>%
+  summarize(count=n()) %>%
+  kable() %>%
+  kable_styling(bootstrap_options=c("condensed","striped"))
+
+
+```
+
+##Vivax: which species did the PCR perform best/worst on?##
+
+  First table: POS-POS  
+  Second table: POS-negative  
+
+  Nearly all POS-POS were on funestus s.s. but the vast majority of the POS-negative were also funestus s.s.
+```{r echo=F}
+
+one = moz %>%
+  filter(PViv.PCR == "POS" & PViv.Sequence == "POS") %>%
+  group_by(FINAL.ID) %>%
+  summarize(count=n())
+one$percent = (one$count / sum(one$count)) %>% round(., 4)
+one %>% kable() %>% kable_styling(bootstrap_options=c("condensed","striped"))
+
+two = moz %>%
+  filter(PViv.PCR == "POS" & PViv.Sequence == "negative") %>%
+  group_by(FINAL.ID) %>%
+  summarize(count=n())
+two$percent = (two$count / sum(two$count)) %>% round(., 4)
+two %>% kable() %>% kable_styling(bootstrap_options=c("condensed","striped"))
+
+```
+
+##POS-POS v POS-negative Rates for 4 Most Common Species##
+```{r echo=F}
+
+most.common = c("funestus s.s.", "arabiensis", "rivulorum", "gambiae s.s.")
+
+for (species in most.common) {
+  falc.pcr.pos = moz %>% filter(PFalc.PCR == "POS" & FINAL.ID == species)
+  viv.pcr.pos = moz %>% filter(PViv.PCR == "POS" & FINAL.ID == species) 
+  falc.pcr.pos.pos = falc.pcr.pos %>% filter(PFalc.Sequence == "POS")
+  falc.pcr.pos.neg = falc.pcr.pos %>% filter(PFalc.Sequence == "negative")
+  viv.pcr.pos.pos = viv.pcr.pos %>% filter(PViv.Sequence == "POS")
+  viv.pcr.pos.neg = viv.pcr.pos %>% filter(PViv.Sequence == "negative")
+  falc.pos.pos = (nrow(falc.pcr.pos.pos)/nrow(falc.pcr.pos)) %>% round(., 3)
+  falc.pos.neg = (nrow(falc.pcr.pos.neg)/nrow(falc.pcr.pos)) %>% round(., 3)
+  viv.pos.pos = (nrow(viv.pcr.pos.pos)/nrow(viv.pcr.pos)) %>% round(., 3)
+  viv.pos.neg = (nrow(viv.pcr.pos.neg)/nrow(viv.pcr.pos)) %>% round(., 3)
+  
+  falc.pos.pos.str = paste("(", nrow(falc.pcr.pos.pos), "/", nrow(falc.pcr.pos), ")", sep="")
+  falc.pos.neg.str = paste("(", nrow(falc.pcr.pos.neg), "/", nrow(falc.pcr.pos), ")", sep="")
+  viv.pos.pos.str = paste("(", nrow(viv.pcr.pos.pos), "/", nrow(viv.pcr.pos), ")", sep="")
+  viv.pos.neg.str = paste("(", nrow(viv.pcr.pos.neg), "/", nrow(viv.pcr.pos), ")", sep="")
+  
+  cat(paste(toupper(species)), "\n")
+  cat("  Falc:\n")
+  cat(paste("    POS-POS:", falc.pos.pos, falc.pos.pos.str,  "\n"))
+  cat(paste("    POS-negative:", falc.pos.neg, falc.pos.neg.str, "\n"))
+  cat("  Viv:\n")
+  cat(paste("    POS-POS:", viv.pos.pos, viv.pos.pos.str, "\n"))
+  cat(paste("    POS-negative:", viv.pos.neg, viv.pos.neg.str, "\n"))
+  
+  cat("\n")
+}
+
+```
+
+##Localities of True Positive##
+
+* Some collection sites were recorded as dates, so I'm not sure if they can be used, but Eduardo Mondlane had good data. Hopefully the collection sites as dates had the locality recorded as well. 
+* Eduardo Mondlane Collection had 97% correctness on POS for Falc
+* Also better than normal on Vivax
+```{r echo=F}
+
+falc.pos.pos = moz %>% 
+  filter(PFalc.PCR == "POS" & PFalc.Sequence == "POS") 
+a = falc.pos.pos %>% 
+  group_by(VILA.BAIRRO) %>%
+  summarise(count=n()) 
+a$Malaria.Type = "Falciparum"
+a = a[,c(3, 1, 2)]
+colnames(a) = c("Malaria Type", "Locality", "Count")
+a %>% kable() %>% kable_styling(bootstrap_options = c("condensed", "striped"))
+
+
+viv.pos.pos = moz %>%
+  filter(PViv.PCR == "POS" & PViv.Sequence == "POS")
+a = viv.pos.pos %>% 
+  group_by(VILA.BAIRRO) %>%
+  summarise(count=n()) 
+a$Malaria.Type = "Vivax"
+a = a[,c(3, 1, 2)]
+colnames(a) = c("Malaria Type", "Locality", "Count")
+a %>% kable() %>% kable_styling(bootstrap_options = c("condensed", "striped"))
+
+```
+
+
+##Eduardo Mondlane##
+```{r echo=F}
+# falciparum
+eduardo = moz %>% filter(VILA.BAIRRO == "Eduardo Mondlane")
+eduardo.pos = eduardo %>% filter(PFalc.PCR == "POS")
+eduardo.pos.pos = eduardo.pos %>% filter(PFalc.Sequence == "POS")
+eduardo.pos.neg = eduardo.pos %>% filter(PFalc.Sequence == "negative")
+cat("Eduardo Mondlane Falciparum: \n")
+cat("POS-POS: ")
+nrow(eduardo.pos.pos)/nrow(eduardo.pos)
+cat("POS-negative: ")
+nrow(eduardo.pos.neg)/nrow(eduardo.pos)
+cat("\n")
+
+# vivax
+eduardo.pos = eduardo %>% filter(PViv.PCR == "POS")
+eduardo.pos.pos = eduardo.pos %>% filter(PViv.Sequence == "POS")
+eduardo.pos.neg = eduardo.pos %>% filter(PViv.Sequence == "negative")
+cat("Eduardo Mondlane Vivax: \n")
+cat("POS-POS: ")
+nrow(eduardo.pos.pos)/nrow(eduardo.pos)
+cat("POS-negative: ")
+nrow(eduardo.pos.neg)/nrow(eduardo.pos)
+
+
+```
+
+##Species of True positive##
+
+  Order:   
+    1. Falciparum  
+    2. Vivax  
+  Essentially all POS-POS were funestus s.s.
+```{r echo=F}
+
+falc.pos.pos %>%
+  group_by(FINAL.ID) %>%
+  summarize(Count=n()) %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("condensed", "striped"))
+
+viv.pos.pos %>% group_by(FINAL.ID) %>% summarize(Count=n()) %>% kable() %>% kable_styling(bootstrap_options = c("condensed", "striped"))
+
+```
+
+##Method of Collection Impact on Malaria##
+
+  Larvae collection has 0% POS-POS, while the light trap has all the correct in the entire population  
+```{r echo=F}
+
+light.trap = moz %>% filter(METODO.DE.COLETA == "CDC/L Trap")
+larvae = moz %>% filter(METODO.DE.COLETA == "Larvae collection")
+
+larvae.pos = larvae %>% filter(PFalc.PCR == "POS")
+larvae.pos.pos = larvae %>% filter(PFalc.Sequence == "POS")
+larvae.pos.neg = larvae %>% filter(PFalc.Sequence == "negative")
+
+light.trap.pos = light.trap %>% filter(PFalc.PCR == "POS")
+light.trap.pos.pos = light.trap %>% filter(PFalc.Sequence == "POS")
+light.trap.pos.neg = light.trap %>% filter(PFalc.Sequence == "negative")
+
+cat("Light trap Falciparum POS-POS: ")
+p = (nrow(light.trap.pos.pos)/nrow(light.trap.pos)) %>% round(., 3)
+cat(paste(p), "\n")
+cat("Larvae collection Falciparum POS-POS: ")
+p = (nrow(larvae.pos.pos) / nrow(larvae.pos)) %>% round(., 3)
+cat(paste(p), "\n")
+cat("\n")
+
+light.trap = moz %>% filter(METODO.DE.COLETA == "CDC/L Trap")
+larvae = moz %>% filter(METODO.DE.COLETA == "Larvae collection")
+
+larvae.pos = larvae %>% filter(PViv.PCR == "POS")
+larvae.pos.pos = larvae %>% filter(PViv.Sequence == "POS")
+larvae.pos.neg = larvae %>% filter(PViv.Sequence == "negative")
+
+light.trap.pos = light.trap %>% filter(PViv.PCR == "POS")
+light.trap.pos.pos = light.trap %>% filter(PViv.Sequence == "POS")
+light.trap.pos.neg = light.trap %>% filter(PViv.Sequence == "negative")
+
+cat("Light trap Vivax POS-POS: ")
+p = (nrow(light.trap.pos.pos)/nrow(light.trap.pos)) %>% round(., 3)
+cat(paste(p, "\n"))
+cat("Larvae collection Vivax POS-POS: ")
+p = (nrow(larvae.pos.pos) / nrow(larvae.pos)) %>% round(., 3)
+cat(paste(p, "\n"))
+
+
+
+```
+
+
+##Species Breakdown by Locality##
+
+  Almost all localities ~75% or higher funestes s.s. except, Nhacatundo/Sololo/Nhac, Lua-Lua/Chimuara, and Zona Verde
+```{r echo=F}
+
+localities = c("Eduardo Mondlane", "Paz", "Josinha Machel", "Lualua Sede", "Morrongone", 
+               "Zona Verde", "A Luta Continua", "Nhacatundo/Sololo/Nhac", 
+               "Lua-Lua/Chimuara")
+
+strange.localities = c("7 de Abril", "4 de Outubro", "25 de Junho", "x")
+
+for (locality in localities) {
+  sub = moz %>% filter(VILA.BAIRRO == locality)
+  df = sub %>% 
+    group_by(FINAL.ID) %>%
+    dplyr::summarise(count=n()) %>%
+    arrange(desc(count))
+  df$percent = df$count / sum(df$count)
+  df$locality = locality
+  df = df[,c("locality", "FINAL.ID", "count", "percent")]
+  colnames(df) = c("Locality", "DNA ID", "Count", "Percent")
+  print(df %>% kable())
+}
+
+```
+
+
+
+```{r echo=F}
+
+wet.months = c("November", "December", "January", "February", "March")
+dry.months = c("April", "May", "June", "July", "August", "September", "October")
+
+moz$season = vector(length=nrow(moz))
+moz$season[moz$MES.COLHEITA %in% wet.months] = "wet"
+moz$season[moz$MES.COLHEITA %in% dry.months] = "dry"
+
+wet = moz %>% filter(season == "wet")
+dry = moz %>% filter(season == "dry")
+
+w = wet %>% 
+  group_by(FINAL.ID) %>%
+  summarize(Count=n()) %>%
+  arrange(desc(Count))
+w$Percent = w$Count / sum(w$Count)
+w
+
+d = dry %>% 
+  group_by(FINAL.ID) %>%
+  summarize(Count=n()) %>%
+  arrange(desc(Count))
+d$Percent = d$Count / sum(d$Count)
+d
+
+```
+
+
+
+
+```{r echo=F}
+
+wet.pos.falc = wet %>% filter(PFalc.PCR == "POS")
+wet.pos.pos.falc = wet %>% filter(PFalc.PCR == "POS" & PFalc.Sequence == "POS")
+wet.pos.neg.falc = wet %>% filter(PFalc.PCR == "POS" & PFalc.Sequence == "negative")
+
+wet.pos.viv = wet %>% filter(PViv.PCR == "POS")
+wet.pos.pos.viv = wet %>% filter(PViv.PCR == "POS" & PViv.Sequence == "POS")
+wet.pos.neg.viv = wet %>% filter(PViv.PCR == "POS" & PViv.Sequence == "negative")
+
+dry.pos.viv = dry %>% filter(PViv.PCR == "POS")
+dry.pos.pos.viv = dry %>% filter(PViv.PCR == "POS" & PViv.Sequence == "POS")
+dry.pos.neg.viv = dry %>% filter(PViv.PCR == "POS" & PViv.Sequence == "negative")
+
+dry.pos.falc = dry %>% filter(PFalc.PCR == "POS")
+dry.pos.pos.falc = dry %>% filter(PFalc.PCR == "POS" & PFalc.Sequence == "POS")
+dry.pos.neg.falc = dry %>% filter(PFalc.PCR == "POS" & PFalc.Sequence == "negative")
+
+
+nrow(dry.pos.pos.falc) / nrow(dry.pos.falc)
+nrow(dry.pos.pos.viv) / nrow(dry.pos.viv)
+
+nrow(wet.pos.pos.falc) / nrow(wet.pos.falc)
+nrow(wet.pos.pos.viv) / nrow(wet.pos.viv)
+
+nrow(wet.pos.pos.falc)
+nrow(wet.pos.falc)
+nrow(wet.pos.pos.viv)
+nrow(wet.pos.viv)
+
+```
+
+
+
+
+
+
