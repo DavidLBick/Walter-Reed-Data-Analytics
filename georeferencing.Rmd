@@ -1,0 +1,135 @@
+
+
+```{r}
+# reading in data 
+library(tidyverse)
+raw = read.csv("unsplit_string.csv", stringsAsFactors = FALSE)
+colnames(raw) = c("sequence", "raw.string")
+raw$country = rep("USA", nrow(raw))
+raw$type = vector(length=nrow(raw), mode="numeric")
+raw$state = vector(length=nrow(raw), mode="character")
+raw$county = vector(length=nrow(raw), mode="character")
+raw$locality.other = vector(length=nrow(raw), mode="character")
+raw$author = vector(length=nrow(raw), mode="character")
+```
+
+```{r}
+
+# strings have multiple different formats or "types"
+
+# types: 
+# 0. currently unclassified type
+# 1. ":_COUNTRYTUSAL*:_BALDWIN:_COUNTRYTUSAL*:_" i.e. ":__COUNTRYUS__*:_STATE:_COUNTRYTUS__*:_"
+# 2. ":_COUNTRYTUSAK*:_:_COUNTRYTUSAK*:_" i.e.  ":_COUNTRYTUS__*:_:_COUNTRYTUS__*:_"
+
+assign.type = function(str) {
+  type = 0
+  if (startsWith(str, ":_COUNTRYTUS")) {
+    first.str.removed = substr(str, 18, nchar(str))
+    if (startsWith(first.str.removed, ":_COUNTRYTUS")) {
+      # back to back ":_COUNTRYTUS__*:_:_COUNTRYTUS__*:_"
+      type = 2
+      return(type)
+    }
+    else {
+      type = 1
+      return(type)
+    }
+  }
+  return(type)
+}
+
+# formatting for type 1 string format
+format.type.1 = function(raw.string) {
+  # remove ":_COUNTRYTUS__*:__"
+  raw.string = substr(raw.string, 18, nchar(raw.string))
+  splt = strsplit(raw.string, ":_") %>% unlist() # have to unlist to make a vector
+  splt = splt[-c(1,2)] # remove repeat of county and second ":_COUNTRYTUS__*:__"
+  # author is last entry, or there will be empty string there after splitting
+  author = splt[length(splt)]
+  # remove author
+  splt = splt[-(length(splt))]
+  splt = splt[splt != ""] # after splitting remove all "" created by multiple :_
+  return(list(splt=splt,
+              author=author))
+}
+
+
+# formatting for type 2 string format
+format.type.2 = function(raw.string) {
+  raw.string = substr(raw.string, 35, nchar(raw.string))
+  splt = strsplit(raw.string, ":_") %>% unlist()
+  # author is last entry, or there will be empty string there after splitting
+  author = splt[length(splt)]
+  # remove author
+  splt = splt[-(length(splt))]
+  splt = splt[splt != ""]
+  return(list(splt=splt,
+              author=author))
+}
+
+```
+
+
+```{r warning=FALSE}
+
+# assign types
+for (i in 1:nrow(raw)) {
+  raw.string = raw$raw.string[i]
+  type = assign.type(raw.string)
+  raw$type[i] = type 
+}
+
+# type 1 formatting
+for (i in 1:nrow(raw)) {
+  raw.string = raw$raw.string[i]
+  type = raw$type[i]
+  if (type == 1) {
+    obj = format.type.1(raw.string)
+    formatted = obj$splt
+    author = obj$author 
+    if (author != "") raw$author[i] = author
+    # state stored in first element
+    raw$state[i] = formatted[1]
+    # county stored in second element
+    raw$county[i] = formatted[2]
+    # the rest is locality or other information 
+    locality.other = formatted[-c(1, 2)]
+    # but if there is no locality or other information, assign label unspecified
+    if (length(locality.other) == 0) {
+      raw$locality.other[i] = "Unspecified"
+    }
+    else {
+      raw$locality.other[i] = locality.other
+    }
+  }
+}
+
+# type 2 formatting 
+for (i in 1:nrow(raw)) {
+  raw.string = raw$raw.string[i]
+  type = raw$type[i]
+  if (type == 2) {
+    obj = format.type.1(raw.string)
+    formatted = obj$splt
+    author = obj$author 
+    if (author != "") raw$author[i] = author
+    raw$state[i] = formatted[1]
+    locality.other = formatted[-1]
+    if (length(locality.other) == 0) {
+      raw$locality.other[i] = "Unspecified"
+    }
+    else {
+      raw$locality.other[i] = locality.other
+    }
+  }
+}
+
+```
+
+```{r}
+
+raw = raw[,c("sequence", "type", "raw.string", "country", "state", "county", "locality.other", "author")]
+write.csv(raw, "formatted_USNTC_data.csv", row.names=F)
+
+```
