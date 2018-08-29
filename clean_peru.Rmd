@@ -1,0 +1,149 @@
+---
+title: "Peru Mosquito Analysis"
+author: "David Bick"
+output: pdf_document
+---
+
+#Changes#
+
+* Removed all entries with no species entered
+* Instead of color coded graphs, added labels on the axes
+* For elevation breakdown by river and species, scales are now consistent over all graphs for easier comparison
+
+```{r  results='hide', message=FALSE, warning=FALSE, echo=F}
+library(tidyverse)
+library(plyr)
+load("peru_data.RData")
+peru.df = peru.df %>% filter(Species != "Unlabeled Species")
+peru.df = peru.df %>% filter(Taxonomy.Notes != "Unidentified")
+```
+
+#Number of Collections Per River#
+```{r echo=F, warning=F, message=F}
+
+library(knitr)
+library(kableExtra)
+library(DT)
+peru.df %>%
+  group_by(Sector) %>%
+  dplyr::summarize(Number=length(unique(Collection.Date))) %>%
+  kable() %>% kable_styling()
+
+```
+
+#Number of Village Collection Sites#
+
+```{r echo=F, warning=F, message=F}
+peru.df %>%
+  group_by(Sector) %>%
+  dplyr::summarize(num=length(unique(Exact.Site))) %>%
+  kable() %>% kable_styling()
+```
+
+#Breakdown of Species By River #  
+```{r message=FALSE, warning=FALSE, echo=F}
+ggplot(peru.df, aes(x=Species)) + 
+  geom_bar() + 
+  theme(axis.text.x = element_text(), plot.title=element_text(hjust=0.5), axis.title.x = element_text()) + 
+  ggtitle("Total Collected Species Breakdown") + coord_flip() + labs(y="Count")
+ggplot(yavari.df, aes(x=Species)) + 
+  geom_bar() + 
+  theme(axis.text.x = element_text(), plot.title=element_text(hjust=0.5), axis.title.x = element_text()) + 
+  ggtitle("Yavari River Species Breakdown") + coord_flip() + labs(y="Count")
+ggplot(morona.df, aes(x=Species)) + 
+  geom_bar() + 
+  theme(axis.text.x = element_text(), plot.title=element_text(hjust=0.5), axis.title.x = element_text()) + 
+  ggtitle("Morona River Species Breakdown") + coord_flip() + labs(y="Count")
+ggplot(corrientes.df, aes(x=Species)) + 
+  geom_bar() + 
+  theme(axis.text.x = element_text(), plot.title=element_text(hjust=0.5), axis.title.x = element_text()) + 
+  ggtitle("Corrientes River Species Breakdown") + coord_flip() + labs(y="Count")
+ggplot(urituyacu.df, aes(x=Species)) + 
+  geom_bar() + 
+  theme(axis.text.x = element_text(), plot.title=element_text(hjust=0.5), axis.title.x = element_text()) + 
+  ggtitle("Urituyacu River Species Breakdown") + coord_flip() + labs(y="Count")
+```
+
+#Breakdown of Taxonomical Identification By River#  
+```{r echo=F}
+ggplot(peru.df, aes(x=Taxonomy.Notes)) + 
+  geom_bar() + 
+  theme(axis.text.x = element_text(), plot.title=element_text(hjust=0.5), axis.title.x = element_text()) + 
+  ggtitle("Total Collected Taxonomical Breakdown") + labs(x="Taxonomical ID", y="Count") + coord_flip()
+ggplot(yavari.df, aes(x=Taxonomy.Notes)) + 
+  geom_bar() + 
+  theme(axis.text.x = element_text(), plot.title=element_text(hjust=0.5), axis.title.x = element_text()) + 
+  ggtitle("Yavari River Taxonomical Breakdown") + labs(x="Taxonomical ID", y="Count") + coord_flip() 
+ggplot(morona.df, aes(x=Taxonomy.Notes)) + 
+  geom_bar() + 
+  theme(axis.text.x = element_text(), plot.title=element_text(hjust=0.5), axis.title.x = element_text()) + 
+  ggtitle("Morona River Taxonomical Breakdown") + labs(x="Taxonomical ID", y="Count") + coord_flip()
+ggplot(corrientes.df, aes(x=Taxonomy.Notes)) + 
+  geom_bar() + 
+  theme(axis.text.x = element_text(), plot.title=element_text(hjust=0.5), axis.title.x = element_text()) + 
+  ggtitle("Corrientes River Taxonomical Breakdown") + labs(x="Taxonomical ID", y="Count") + coord_flip()
+ggplot(urituyacu.df, aes(x=Taxonomy.Notes)) + 
+  geom_bar() + 
+  theme(axis.text.x = element_text(), plot.title=element_text(hjust=0.5), axis.title.x = element_text()) + 
+  ggtitle("Urituyacu River Taxonomical Breakdown") + labs(x="Taxonomical ID", y="Count") + coord_flip()
+```
+
+#Elevation By River#  
+```{r echo=F}
+ggplot(elev.plot.df, aes(Elev)) + 
+  geom_histogram(binwidth=15) + 
+  facet_wrap(~Sector) + labs(x="Elevation", y="Count")
+```
+
+#Elevation Breakdown by Species#  
+```{r echo=F}
+ggplot(elev.plot.df, aes(Elev)) + 
+  geom_histogram(binwidth=15) + 
+  facet_wrap(~Species) + labs(x="Elevation", y="Count")
+```
+
+#Sampling Protocol Breakdown#  
+```{r echo=F}
+
+ggplot(peru.df, aes(Sampling.Protocol)) + 
+  geom_bar() + 
+  theme(axis.text.x = element_text(size=8.5), plot.title=element_text(hjust=0.5), axis.title.y = element_text(size=8.5)) + ylab("# of mosquitos") + xlab("Sampling Protocol") + ggtitle("Breakdown of Sampling Protocol Used") + labs(fill="Sampling Protocol")
+
+```
+
+#Breakdown of Species By Sampling Protocol Used#
+```{r echo=F}
+breakdown.species = function(df, text) {
+  print(ggplot(df, aes(x=Species)) + 
+  geom_bar() + 
+  theme(axis.text.x = element_text(), plot.title=element_text(hjust=0.5), axis.title.x = element_text()) + 
+  ggtitle(text) + coord_flip() + labs(x="Species", y="Count"))
+}
+
+d_ply(peru.df, .(Sampling.Protocol), function(x) breakdown.species(x, x$Sampling.Protocol[1]))
+```
+
+#Breakdown of Taxonomical Identification By Sampling Protocol Used#
+```{r echo=F}
+breakdown.taxonomy = function(df, text) {
+  print(ggplot(df, aes(x=Taxonomy.Notes)) + 
+  geom_bar() + 
+  theme(axis.text.x = element_text(), plot.title=element_text(hjust=0.5), axis.title.x = element_text()) + 
+  ggtitle(text) + labs(x="Taxonomical ID", y="Count") + coord_flip())
+}
+
+d_ply(peru.df, .(Sampling.Protocol), function(x) breakdown.taxonomy(x, x$Sampling.Protocol[1]))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
